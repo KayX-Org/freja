@@ -35,7 +35,7 @@ func NewPSQL(host string) (*sql.DB, error) {
 }
 
 func NewMYSQL(host string) (*sql.DB, error) {
-	return openSql(Postgres, host)
+	return openSql(Mysql, host)
 }
 
 func getEnv(key string, defaultVal string) string {

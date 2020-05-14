@@ -13,12 +13,8 @@ func NewDB(db *sql.DB) *dbMiddleware {
 	return &dbMiddleware{db: db}
 }
 
-func (m *dbMiddleware) Name() string {
-	return ""
-}
-
 func (m *dbMiddleware) Init() error {
-
+	return nil
 }
 
 func (m *dbMiddleware) Run(ctx context.Context) error {
