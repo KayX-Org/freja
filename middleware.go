@@ -1,9 +1,10 @@
-package middleware
+package freya
 
 import (
 	"context"
 )
 
+//go:generate moq -out middleware_mock_test.go . Middleware
 // Middleware is the manager for any task that is meant to run in the background besides the http server
 // It'll initiate it, run it in a different goroutine and if the service is shutdown it'll stop it gracefully.
 // It can be also used as a mean to ensure the correct clean up of resources before shutdown,

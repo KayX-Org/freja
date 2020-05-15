@@ -1,6 +1,7 @@
-package healthcheck
+package freya
 
 import (
+	"github.com/diego1q2w/freya/healthcheck"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -18,24 +19,24 @@ func TestHealthCheck(t *testing.T) {
 		},
 		"if all the health checks are correct or temporally unavailable then true expected": {
 			healthChecks: []*mockHC{
-				{name: "foo", status: UP},
-				{name: "bar", status: TemporallyUnavailable},
+				{name: "foo", status: healthcheck.UP},
+				{name: "bar", status: healthcheck.TemporallyUnavailable},
 			},
 			expectedStatus: true,
 			expectedSummary: []Status{
-				{Name: "foo", Status: UP.ToString()},
-				{Name: "bar", Status: TemporallyUnavailable.ToString()},
+				{Name: "foo", Status: healthcheck.UP.ToString()},
+				{Name: "bar", Status: healthcheck.TemporallyUnavailable.ToString()},
 			},
 		},
 		"if one  health checks is down then false expected": {
 			healthChecks: []*mockHC{
-				{name: "foo", status: UP},
-				{name: "bar", status: DOWN},
+				{name: "foo", status: healthcheck.UP},
+				{name: "bar", status: healthcheck.DOWN},
 			},
 			expectedStatus: false,
 			expectedSummary: []Status{
-				{Name: "foo", Status: UP.ToString()},
-				{Name: "bar", Status: DOWN.ToString()},
+				{Name: "foo", Status: healthcheck.UP.ToString()},
+				{Name: "bar", Status: healthcheck.DOWN.ToString()},
 			},
 		},
 	}
@@ -57,12 +58,12 @@ func TestHealthCheck(t *testing.T) {
 
 type mockHC struct {
 	name   string
-	status ServiceStatus
+	status healthcheck.ServiceStatus
 }
 
 func (m *mockHC) Name() string {
 	return m.name
 }
-func (m *mockHC) Status() ServiceStatus {
+func (m *mockHC) Status() healthcheck.ServiceStatus {
 	return m.status
 }

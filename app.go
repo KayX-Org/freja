@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/diego1q2w/freya/component"
 	"github.com/diego1q2w/freya/healthcheck"
-	"github.com/diego1q2w/freya/middleware"
 	"io"
 	"net/http"
 	"os"
@@ -15,12 +14,10 @@ import (
 	"time"
 )
 
-//go:generate moq -out middleware_mock_test.go -pkg freya ./middleware Middleware
-
 //go:generate moq -out health_calculator_mock_test.go . healthCalculator
 type healthCalculator interface {
 	Add(healthcheck.HealthChecker)
-	Calculate() (bool, []healthcheck.Status)
+	Calculate() (bool, []Status)
 }
 
 //go:generate moq -out server_mock_test.go . Server
@@ -34,7 +31,7 @@ type OptionApp func(*app)
 type app struct {
 	healthCalculator healthCalculator
 	logger           Logger
-	meddlers         []middleware.Middleware
+	meddlers         []Middleware
 	server           Server
 	cancel           context.CancelFunc
 	osSignal         chan os.Signal //  listen when the service is asked to shutdown and initiates graceful shutdown
@@ -43,9 +40,9 @@ type app struct {
 
 func App(options ...OptionApp) *app {
 	app := &app{
-		healthCalculator: healthcheck.NewHealthCalculator(),
+		healthCalculator: NewHealthCalculator(),
 		logger:           component.NewLogger(),
-		meddlers:         make([]middleware.Middleware, 0),
+		meddlers:         make([]Middleware, 0),
 		osSignal:         make(chan os.Signal, 1),
 		shutdown:         make(chan bool, 1),
 	}
@@ -70,7 +67,7 @@ func optionLogger(logger Logger) OptionApp {
 
 // AddMiddleware adds another middleware, and if it does implement the interface HealthChecker
 // it'll add as a HealCheck as well
-func (a *app) AddMiddleware(m middleware.Middleware) {
+func (a *app) AddMiddleware(m Middleware) {
 	a.meddlers = append(a.meddlers, m)
 	if h, ok := m.(healthcheck.HealthChecker); ok {
 		a.AddHealthCheck(h)
@@ -135,7 +132,7 @@ func (a *app) Start(ctx context.Context) error {
 	}
 
 	for _, mid := range a.meddlers {
-		go func(mid middleware.Middleware) {
+		go func(mid Middleware) {
 			if err := mid.Run(ctx); err != nil {
 				a.logger.Errorf("unable to run middleware: %s", err)
 			}

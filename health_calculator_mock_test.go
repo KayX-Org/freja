@@ -26,7 +26,7 @@ var _ healthCalculator = &healthCalculatorMock{}
 //             AddFunc: func(in1 healthcheck.HealthChecker)  {
 // 	               panic("mock out the Add method")
 //             },
-//             CalculateFunc: func() (bool, []healthcheck.Status) {
+//             CalculateFunc: func() (bool, []Status) {
 // 	               panic("mock out the Calculate method")
 //             },
 //         }
@@ -40,7 +40,7 @@ type healthCalculatorMock struct {
 	AddFunc func(in1 healthcheck.HealthChecker)
 
 	// CalculateFunc mocks the Calculate method.
-	CalculateFunc func() (bool, []healthcheck.Status)
+	CalculateFunc func() (bool, []Status)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -87,7 +87,7 @@ func (mock *healthCalculatorMock) AddCalls() []struct {
 }
 
 // Calculate calls CalculateFunc.
-func (mock *healthCalculatorMock) Calculate() (bool, []healthcheck.Status) {
+func (mock *healthCalculatorMock) Calculate() (bool, []Status) {
 	if mock.CalculateFunc == nil {
 		panic("healthCalculatorMock.CalculateFunc: method is nil but healthCalculator.Calculate was just called")
 	}

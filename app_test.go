@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/diego1q2w/freya/healthcheck"
-	"github.com/diego1q2w/freya/middleware"
 	"github.com/stretchr/testify/assert"
 	"syscall"
 	"testing"
@@ -109,7 +108,7 @@ func TestAppMiddleware(t *testing.T) {
 
 func TestAppHealthCheck(t *testing.T) {
 	testCases := map[string]struct {
-		middleware             middleware.Middleware
+		middleware             Middleware
 		healthCheck            healthcheck.HealthChecker
 		healthCalculator       bool
 		expectedAddCalls       int
@@ -156,8 +155,8 @@ func TestAppHealthCheck(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			healthCalculator := &healthCalculatorMock{
 				AddFunc: func(healthcheck.HealthChecker) {},
-				CalculateFunc: func() (bool, []healthcheck.Status) {
-					return false, []healthcheck.Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
+				CalculateFunc: func() (bool, []Status) {
+					return false, []Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
 				}}
 
 			app := App()

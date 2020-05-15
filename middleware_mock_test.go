@@ -5,7 +5,6 @@ package freya
 
 import (
 	"context"
-	"github.com/diego1q2w/freya/middleware"
 	"sync"
 )
 
@@ -15,15 +14,15 @@ var (
 	lockMiddlewareMockStop sync.RWMutex
 )
 
-// Ensure, that MiddlewareMock does implement middleware.Middleware.
+// Ensure, that MiddlewareMock does implement Middleware.
 // If this is not the case, regenerate this file with moq.
-var _ middleware.Middleware = &MiddlewareMock{}
+var _ Middleware = &MiddlewareMock{}
 
-// MiddlewareMock is a mock implementation of middleware.Middleware.
+// MiddlewareMock is a mock implementation of Middleware.
 //
 //     func TestSomethingThatUsesMiddleware(t *testing.T) {
 //
-//         // make and configure a mocked middleware.Middleware
+//         // make and configure a mocked Middleware
 //         mockedMiddleware := &MiddlewareMock{
 //             InitFunc: func() error {
 // 	               panic("mock out the Init method")
@@ -36,7 +35,7 @@ var _ middleware.Middleware = &MiddlewareMock{}
 //             },
 //         }
 //
-//         // use mockedMiddleware in code that requires middleware.Middleware
+//         // use mockedMiddleware in code that requires Middleware
 //         // and then make assertions.
 //
 //     }
