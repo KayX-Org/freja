@@ -68,7 +68,7 @@ func TestAppMiddleware(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			app := App()
+			app := App(OptionLogger(&DummyLogger{}))
 			mid := &MiddlewareMock{
 				InitFunc: func() error {
 					return tc.initErr
@@ -82,7 +82,7 @@ func TestAppMiddleware(t *testing.T) {
 			}
 
 			if tc.server != nil {
-				app.AddServer(tc.server)
+				app.WithServer(tc.server)
 			}
 			app.AddMiddleware(mid)
 
@@ -160,11 +160,11 @@ func TestAppHealthCheck(t *testing.T) {
 					return false, []healthcheck.Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
 				}}
 
-			var app *app
+			app := App()
 			if tc.healthCalculator {
-				app = NewApp(healthCalculator)
+				app = App(OptionHealthCalculator(healthCalculator), OptionLogger(&DummyLogger{}))
 			} else {
-				app = NewApp(nil)
+				app = App(OptionHealthCalculator(nil), OptionLogger(&DummyLogger{}))
 			}
 
 			if tc.middleware != nil {

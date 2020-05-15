@@ -8,7 +8,6 @@ import (
 	"github.com/diego1q2w/freya/healthcheck"
 	"github.com/diego1q2w/freya/middleware"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,8 +29,11 @@ type Server interface {
 	Shutdown(context.Context) error
 }
 
+type OptionApp func(*app)
+
 type app struct {
 	healthCalculator healthCalculator
+	logger           Logger
 	meddlers         []middleware.Middleware
 	server           Server
 	cancel           context.CancelFunc
@@ -39,21 +41,30 @@ type app struct {
 	shutdown         chan bool      // Use to exit the method start
 }
 
-func App() *app {
-	return &app{
+func App(options ...OptionApp) *app {
+	app := &app{
 		healthCalculator: healthcheck.NewHealthCalculator(),
+		logger:           component.NewLogger(),
 		meddlers:         make([]middleware.Middleware, 0),
 		osSignal:         make(chan os.Signal, 1),
 		shutdown:         make(chan bool, 1),
 	}
+	for _, o := range options {
+		o(app)
+	}
+
+	return app
 }
 
-func NewApp(healthCalculator healthCalculator) *app {
-	return &app{
-		healthCalculator: healthCalculator,
-		meddlers:         make([]middleware.Middleware, 0),
-		osSignal:         make(chan os.Signal, 1),
-		shutdown:         make(chan bool, 1),
+func OptionHealthCalculator(healthCalculator healthCalculator) OptionApp {
+	return func(a *app) {
+		a.healthCalculator = healthCalculator
+	}
+}
+
+func OptionLogger(logger Logger) OptionApp {
+	return func(a *app) {
+		a.logger = logger
 	}
 }
 
@@ -85,7 +96,7 @@ func (a *app) HealthCheck(writer io.Writer) (bool, error) {
 	return true, nil
 }
 
-func (a *app) AddServer(s Server) {
+func (a *app) WithServer(s Server) {
 	a.server = s
 }
 
@@ -122,8 +133,7 @@ func (a *app) Start(ctx context.Context) error {
 	for _, mid := range a.meddlers {
 		go func(mid middleware.Middleware) {
 			if err := mid.Run(ctx); err != nil {
-				//TODO: it should be an error log
-				log.Fatalf("unable to run middleware: %s", err)
+				a.logger.Errorf("unable to run middleware: %s", err)
 			}
 		}(mid)
 	}
@@ -137,13 +147,13 @@ func (a *app) Start(ctx context.Context) error {
 	}
 
 	<-a.shutdown
-	fmt.Println("shutdown finalized")
+	a.logger.Info("shutdown finalized")
 	return nil
 }
 
 func (a *app) stop(ctx context.Context) {
 	<-a.osSignal
-	fmt.Println("shutdown initiated")
+	a.logger.Info("shutdown initiated")
 	a.cancel()
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
@@ -151,15 +161,13 @@ func (a *app) stop(ctx context.Context) {
 
 	if a.server != nil {
 		if err := a.server.Shutdown(ctx); err != nil {
-			// TODO: once the logger is setup this should be error level
-			log.Fatalf("error stopping server: %s", err)
+			a.logger.Errorf("error stopping server: %s", err)
 		}
 	}
 
 	for _, mid := range a.meddlers {
 		if err := mid.Stop(ctx); err != nil {
-			// TODO: once the logger is setup this should be error level
-			log.Fatal("error to stop middleware", err)
+			a.logger.Errorf("error stopping middleware: %s", err)
 		}
 	}
 
