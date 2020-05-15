@@ -1,4 +1,4 @@
-package freya
+package freja
 
 import (
 	"context"

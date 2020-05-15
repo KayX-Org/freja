@@ -1,11 +1,11 @@
-package freya
+package freja
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/diego1q2w/freya/component"
-	"github.com/diego1q2w/freya/healthcheck"
+	"github.com/diego1q2w/freja/component"
+	"github.com/diego1q2w/freja/healthcheck"
 	"io"
 	"net/http"
 	"os"

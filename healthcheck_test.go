@@ -1,7 +1,7 @@
-package freya
+package freja
 
 import (
-	"github.com/diego1q2w/freya/healthcheck"
+	"github.com/diego1q2w/freja/healthcheck"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

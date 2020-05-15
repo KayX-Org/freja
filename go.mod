@@ -1,4 +1,4 @@
-module github.com/diego1q2w/freya
+module github.com/diego1q2w/freja
 
 go 1.13
 

@@ -1,4 +1,4 @@
-package freya
+package freja
 
 //go:generate moq -out logger_mock_test.go . Logger
 type Logger interface {

@@ -1,10 +1,10 @@
-package freya
+package freja
 
 import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/diego1q2w/freya/healthcheck"
+	"github.com/diego1q2w/freja/healthcheck"
 	"github.com/stretchr/testify/assert"
 	"syscall"
 	"testing"
@@ -20,6 +20,7 @@ func TestAppMiddleware(t *testing.T) {
 		expectedInitCalls         int
 		expectedRunCalls          int
 		expectedStopCalls         int
+		expectedFatalLogCalls     int
 		expectedServerListenCalls int
 		expectedServerStopCalls   int
 		expectedErr               error
@@ -49,10 +50,13 @@ func TestAppMiddleware(t *testing.T) {
 			expectedInitCalls: 1,
 			expectedErr:       fmt.Errorf("unable to run Init(): test"),
 		},
-		"if the server is unable to start an error is expected": {
+		"if the server is unable to start the fatal log should be called": {
 			expectedInitCalls:         1,
 			expectedServerListenCalls: 1,
+			expectedServerStopCalls:   1,
+			expectedStopCalls:         1,
 			expectedRunCalls:          1,
+			expectedFatalLogCalls:     1,
 			server: &ServerMock{
 				ListenAndServeFunc: func() error {
 					return fmt.Errorf("test")
@@ -61,13 +65,17 @@ func TestAppMiddleware(t *testing.T) {
 					return nil
 				},
 			},
-			expectedErr: fmt.Errorf("unable to run the server: test"),
 		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			app := App(optionLogger(&DummyLogger{}))
+			logger := &LoggerMock{
+				FatalfFunc: func(string, ...interface{}) {},
+				InfoFunc:   func(...interface{}) {},
+				InfofFunc:  func(string, ...interface{}) {},
+			}
+			app := App(optionLogger(logger))
 			mid := &MiddlewareMock{
 				InitFunc: func() error {
 					return tc.initErr
@@ -97,6 +105,8 @@ func TestAppMiddleware(t *testing.T) {
 			assert.Equal(t, len(mid.calls.Init), tc.expectedInitCalls, "init called once")
 			assert.Equal(t, len(mid.calls.Run), tc.expectedRunCalls, "run called once")
 			assert.Equal(t, len(mid.calls.Stop), tc.expectedStopCalls, "stop called once")
+
+			assert.Equal(t, len(logger.calls.Fatalf), tc.expectedFatalLogCalls, "fatal log called once")
 
 			if tc.server != nil {
 				assert.Equal(t, len(tc.server.calls.ListenAndServe), tc.expectedServerListenCalls, "ListenAndServe called once")
