@@ -34,8 +34,8 @@ type app struct {
 	meddlers         []Middleware
 	server           Server
 	cancel           context.CancelFunc
-	osSignal         chan os.Signal //  listen when the service is asked to shutdown and initiates graceful shutdown
-	shutdown         chan bool      // Use to exit the method start
+	osSignal         chan os.Signal //  listen when the service is asked to shutdown
+	gracefulStop     chan bool      // Use to initiate the graceful shutdown
 }
 
 func App(options ...OptionApp) *app {
@@ -44,7 +44,7 @@ func App(options ...OptionApp) *app {
 		logger:           component.NewLogger(),
 		meddlers:         make([]Middleware, 0),
 		osSignal:         make(chan os.Signal, 1),
-		shutdown:         make(chan bool, 1),
+		gracefulStop:     make(chan bool, 1),
 	}
 	for _, o := range options {
 		o(app)
@@ -112,14 +112,15 @@ func (a *app) init() error {
 		}
 	}
 
-	signal.Notify(a.osSignal,
-		os.Interrupt,    // interrupt is syscall.SIGINT, Ctrl+C
-		syscall.SIGQUIT, // Ctrl-\
-		syscall.SIGHUP,  // "terminal is disconnected"
-		syscall.SIGTERM, // "the normal way to politely ask a program to terminate"
-	)
+	signal.Notify(a.osSignal, syscall.SIGTERM)
+	signal.Notify(a.osSignal, syscall.SIGINT)
 
-	go a.stop(context.Background())
+	go func() {
+		sig := <-a.osSignal
+		a.logger.Infof("signal caught: %s", sig)
+		a.gracefulStop <- true
+	}()
+
 	return nil
 }
 
@@ -142,36 +143,38 @@ func (a *app) Start(ctx context.Context) error {
 	time.Sleep(time.Millisecond * 200)
 
 	if a.server != nil {
-		a.logger.Info("starting server")
-		if err := a.server.ListenAndServe(); err != nil {
-			return fmt.Errorf("unable to run the server: %w", err)
-		}
+		go func() {
+			a.logger.Info("starting server")
+			if err := a.server.ListenAndServe(); err != nil {
+				a.logger.Fatalf("unable to run the server: %s", err)
+			}
+		}()
+
 	}
 
-	<-a.shutdown
+	a.stop(ctx)
+
 	a.logger.Info("shutdown finalized")
 	return nil
 }
 
 func (a *app) stop(ctx context.Context) {
-	<-a.osSignal
+	<-a.gracefulStop
 	a.logger.Info("graceful shutdown initiated")
 	a.cancel()
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
 	if a.server != nil {
 		if err := a.server.Shutdown(ctx); err != nil {
-			a.logger.Errorf("error stopping server: %s", err)
+			a.logger.Errorf("error gracefully stopping server: %s", err)
 		}
 	}
 
 	for _, mid := range a.meddlers {
 		if err := mid.Stop(ctx); err != nil {
-			a.logger.Errorf("error stopping middleware: %s", err)
+			a.logger.Errorf("error gracefully stopping middleware: %s", err)
 		}
 	}
-
-	a.shutdown <- true
 }
