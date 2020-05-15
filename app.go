@@ -142,6 +142,7 @@ func (a *app) Start(ctx context.Context) error {
 	time.Sleep(time.Millisecond * 200)
 
 	if a.server != nil {
+		a.logger.Info("starting server")
 		if err := a.server.ListenAndServe(); err != nil {
 			return fmt.Errorf("unable to run the server: %w", err)
 		}
@@ -154,7 +155,7 @@ func (a *app) Start(ctx context.Context) error {
 
 func (a *app) stop(ctx context.Context) {
 	<-a.osSignal
-	a.logger.Info("shutdown initiated")
+	a.logger.Info("graceful shutdown initiated")
 	a.cancel()
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
