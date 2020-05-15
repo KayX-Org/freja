@@ -62,7 +62,7 @@ func OptionHealthCalculator(healthCalculator healthCalculator) OptionApp {
 	}
 }
 
-func OptionLogger(logger Logger) OptionApp {
+func optionLogger(logger Logger) OptionApp {
 	return func(a *app) {
 		a.logger = logger
 	}
@@ -102,6 +102,10 @@ func (a *app) WithServer(s Server) {
 
 func (a *app) Server(h http.Handler) {
 	a.server = component.NewServer(h)
+}
+
+func (a *app) Logger() Logger {
+	return a.logger
 }
 
 func (a *app) init() error {
