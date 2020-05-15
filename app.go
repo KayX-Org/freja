@@ -2,9 +2,12 @@ package freya
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/diego1q2w/freya/component"
+	"github.com/diego1q2w/freya/healthcheck"
 	"github.com/diego1q2w/freya/middleware"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +18,12 @@ import (
 
 //go:generate moq -out middleware_mock_test.go -pkg freya ./middleware Middleware
 
+//go:generate moq -out health_calculator_mock_test.go . healthCalculator
+type healthCalculator interface {
+	Add(healthcheck.HealthChecker)
+	Calculate() (bool, []healthcheck.Status)
+}
+
 //go:generate moq -out server_mock_test.go . Server
 type Server interface {
 	ListenAndServe() error
@@ -22,23 +31,58 @@ type Server interface {
 }
 
 type app struct {
-	meddlers []middleware.Middleware
-	server   Server
-	cancel   context.CancelFunc
-	osSignal chan os.Signal //  listen when the service is asked to shutdown and initiates graceful shutdown
-	shutdown chan bool      // Use to exit the method start
+	healthCalculator healthCalculator
+	meddlers         []middleware.Middleware
+	server           Server
+	cancel           context.CancelFunc
+	osSignal         chan os.Signal //  listen when the service is asked to shutdown and initiates graceful shutdown
+	shutdown         chan bool      // Use to exit the method start
 }
 
 func App() *app {
 	return &app{
-		meddlers: make([]middleware.Middleware, 0),
-		osSignal: make(chan os.Signal, 1),
-		shutdown: make(chan bool, 1),
+		healthCalculator: healthcheck.NewHealthCalculator(),
+		meddlers:         make([]middleware.Middleware, 0),
+		osSignal:         make(chan os.Signal, 1),
+		shutdown:         make(chan bool, 1),
 	}
 }
 
+func NewApp(healthCalculator healthCalculator) *app {
+	return &app{
+		healthCalculator: healthCalculator,
+		meddlers:         make([]middleware.Middleware, 0),
+		osSignal:         make(chan os.Signal, 1),
+		shutdown:         make(chan bool, 1),
+	}
+}
+
+// AddMiddleware adds another middleware, and if it does implement the interface HealthChecker
+// it'll add as a HealCheck as well
 func (a *app) AddMiddleware(m middleware.Middleware) {
 	a.meddlers = append(a.meddlers, m)
+	if h, ok := m.(healthcheck.HealthChecker); ok {
+		a.AddHealthCheck(h)
+	}
+}
+
+func (a *app) AddHealthCheck(h healthcheck.HealthChecker) {
+	if a.healthCalculator != nil {
+		a.healthCalculator.Add(h)
+	}
+}
+
+// HealthCheck returns a boolean whether the service is healthy or not, and also accepts an the io.Writer
+// into which writes the summary of all the health checks in JSON format
+func (a *app) HealthCheck(writer io.Writer) (bool, error) {
+	if a.healthCalculator != nil {
+		status, summary := a.healthCalculator.Calculate()
+		if err := json.NewEncoder(writer).Encode(summary); err != nil {
+			return false, fmt.Errorf("unable to encode the summary: %w", err)
+		}
+		return status, nil
+	}
+	return true, nil
 }
 
 func (a *app) AddServer(s Server) {
