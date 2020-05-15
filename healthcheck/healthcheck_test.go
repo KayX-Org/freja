@@ -23,8 +23,8 @@ func TestHealthCheck(t *testing.T) {
 			},
 			expectedStatus: true,
 			expectedSummary: []Status{
-				{Name: "foo", Status: "up"},
-				{Name: "bar", Status: TemporallyUnavailable},
+				{Name: "foo", Status: UP.ToString()},
+				{Name: "bar", Status: TemporallyUnavailable.ToString()},
 			},
 		},
 		"if one  health checks is down then false expected": {
@@ -34,8 +34,8 @@ func TestHealthCheck(t *testing.T) {
 			},
 			expectedStatus: false,
 			expectedSummary: []Status{
-				{Name: "foo", Status: "up"},
-				{Name: "bar", Status: DOWN},
+				{Name: "foo", Status: UP.ToString()},
+				{Name: "bar", Status: DOWN.ToString()},
 			},
 		},
 	}
