@@ -29,23 +29,26 @@ type Server interface {
 type OptionApp func(*app)
 
 type app struct {
-	healthCalculator healthCalculator
-	logger           Logger
-	meddlers         []Middleware
-	server           Server
-	cancel           context.CancelFunc
-	osSignal         chan os.Signal //  listen when the service is asked to shutdown
-	gracefulStop     chan bool      // Use to initiate the graceful shutdown
+	healthCalculator        healthCalculator
+	gracefulShutdownTimeout time.Duration
+	logger                  Logger
+	meddlers                []Middleware
+	server                  Server
+	cancel                  context.CancelFunc
+	osSignal                chan os.Signal //  listen when the service is asked to shutdown
+	gracefulStop            chan bool      // Use to initiate the graceful shutdown
 }
 
 func App(options ...OptionApp) *app {
 	app := &app{
-		healthCalculator: NewHealthCalculator(),
-		logger:           component.NewLogger(),
-		meddlers:         make([]Middleware, 0),
-		osSignal:         make(chan os.Signal, 1),
-		gracefulStop:     make(chan bool, 1),
+		healthCalculator:        NewHealthCalculator(),
+		logger:                  component.NewLogger(),
+		gracefulShutdownTimeout: time.Second * 10,
+		meddlers:                make([]Middleware, 0),
+		osSignal:                make(chan os.Signal, 1),
+		gracefulStop:            make(chan bool, 1),
 	}
+
 	for _, o := range options {
 		o(app)
 	}
@@ -56,6 +59,12 @@ func App(options ...OptionApp) *app {
 func OptionHealthCalculator(healthCalculator healthCalculator) OptionApp {
 	return func(a *app) {
 		a.healthCalculator = healthCalculator
+	}
+}
+
+func OptionGracefulShutdownTimeout(gracefulShutdownTimeout time.Duration) OptionApp {
+	return func(a *app) {
+		a.gracefulShutdownTimeout = gracefulShutdownTimeout
 	}
 }
 
@@ -163,7 +172,7 @@ func (a *app) stop(ctx context.Context) {
 	a.logger.Info("graceful shutdown initiated")
 	a.cancel()
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	ctx, cancel := context.WithTimeout(ctx, a.gracefulShutdownTimeout)
 	defer cancel()
 
 	if a.server != nil {
