@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestHealthCheck(t *testing.T) {
+func TestHealthCalculator(t *testing.T) {
 	testCases := map[string]struct {
 		healthChecks    []*mockHC
 		expectedStatus  bool

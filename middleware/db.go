@@ -26,7 +26,7 @@ func NewDB(db db, options ...OptionDbMiddleware) *dbMiddleware {
 	midDb := &dbMiddleware{
 		db:          db,
 		name:        "db",
-		checkWindow: time.Millisecond * 200,
+		checkWindow: time.Millisecond * 500,
 		status:      healthcheck.UP,
 	}
 
