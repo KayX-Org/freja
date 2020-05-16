@@ -1,5 +1,9 @@
 package freja
 
+import (
+	"io"
+)
+
 //go:generate moq -out logger_mock_test.go . Logger
 type Logger interface {
 	Debugf(format string, args ...interface{})
@@ -39,3 +43,40 @@ func (*DummyLogger) Warning(args ...interface{})                 {}
 func (*DummyLogger) Error(args ...interface{})                   {}
 func (*DummyLogger) Fatal(args ...interface{})                   {}
 func (*DummyLogger) Panic(args ...interface{})                   {}
+
+type LogWriter interface {
+	io.Writer
+}
+
+type LogWrite struct {
+	log   Logger
+	level string
+}
+
+func NewLogWrite(log Logger, level string) *LogWrite {
+	return &LogWrite{
+		log:   log,
+		level: level,
+	}
+}
+
+func (l *LogWrite) Write(p []byte) (int, error) {
+	switch l.level {
+	case "debug":
+		l.log.Debug(string(p))
+	case "info":
+		l.log.Info(string(p))
+	case "warn":
+		l.log.Warn(string(p))
+	case "error":
+		l.log.Error(string(p))
+	case "fatal":
+		l.log.Fatalf(string(p))
+	case "panic":
+		l.log.Panic(string(p))
+	default:
+		l.log.Warn(string(p))
+	}
+
+	return len(p), nil
+}

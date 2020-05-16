@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-type Log struct {
-	log log.Logger
-}
-
 func NewLogger() *log.Entry {
 	log.SetFormatter(&log.JSONFormatter{})
 	serviceName := getEnv("SERVICE_NAME", "service")

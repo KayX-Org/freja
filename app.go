@@ -107,7 +107,9 @@ func (a *app) WithServer(s Server) {
 }
 
 func (a *app) Server(h http.Handler) {
-	a.server = component.NewServer(h)
+	a.server = component.NewServer(h,
+		component.OptionErrorLogWriter(
+			NewLogWrite(a.logger, "error")))
 }
 
 func (a *app) Logger() Logger {
