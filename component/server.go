@@ -12,8 +12,8 @@ import (
 type OptionServer func(*Server)
 
 type Server struct {
-	srv    *http.Server
-	logger io.Writer
+	httpSrv *http.Server
+	logger  io.Writer
 }
 
 func NewServer(handler http.Handler, options ...OptionServer) *Server {
@@ -24,16 +24,16 @@ func NewServer(handler http.Handler, options ...OptionServer) *Server {
 
 	addr := getEnv("SERVICE_ADDR", "0.0.0.0")
 	port := getEnv("SERVICE_PORT", "5042")
-	httpServer := &http.Server{
+	srv.httpSrv = &http.Server{
 		Addr:        fmt.Sprintf("%s:%s", addr, port),
 		IdleTimeout: time.Second * 2,
 		Handler:     handler,
 	}
 	if srv.logger != nil {
-		httpServer.ErrorLog = log.New(srv.logger, "", 0)
+		srv.httpSrv.ErrorLog = log.New(srv.logger, "", 0)
 	}
 
-	httpServer.SetKeepAlivesEnabled(true)
+	srv.httpSrv.SetKeepAlivesEnabled(true)
 
 	return srv
 }
@@ -45,9 +45,9 @@ func OptionErrorLogWriter(log io.Writer) OptionServer {
 }
 
 func (s *Server) ListenAndServe() error {
-	return s.srv.ListenAndServe()
+	return s.httpSrv.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	return s.srv.Shutdown(ctx)
+	return s.httpSrv.Shutdown(ctx)
 }
