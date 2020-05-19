@@ -4,7 +4,7 @@
 package freja
 
 import (
-	"github.com/diego1q2w/freja/healthcheck"
+	"github.com/kayx-org/freja/healthcheck"
 	"sync"
 )
 

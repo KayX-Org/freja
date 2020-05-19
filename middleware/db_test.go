@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"github.com/diego1q2w/freja/healthcheck"
+	"github.com/kayx-org/freja/healthcheck"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

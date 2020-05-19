@@ -1,6 +1,6 @@
 package freja
 
-import "github.com/diego1q2w/freja/healthcheck"
+import "github.com/kayx-org/freja/healthcheck"
 
 type Status struct {
 	Name   string `json:"name"`

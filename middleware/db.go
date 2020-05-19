@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"context"
-	"github.com/diego1q2w/freja/healthcheck"
+	"github.com/kayx-org/freja/healthcheck"
 	"time"
 )
 
