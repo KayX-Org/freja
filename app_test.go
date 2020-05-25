@@ -75,7 +75,7 @@ func TestAppMiddleware(t *testing.T) {
 				InfoFunc:   func(...interface{}) {},
 				InfofFunc:  func(string, ...interface{}) {},
 			}
-			app := App(optionLogger(logger))
+			app := NewApp(NewHealthCalculator(), logger)
 			mid := &MiddlewareMock{
 				InitFunc: func() error {
 					return tc.initErr
@@ -169,11 +169,11 @@ func TestAppHealthCheck(t *testing.T) {
 					return false, []Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
 				}}
 
-			app := App()
+			var app *app
 			if tc.healthCalculator {
-				app = App(OptionHealthCalculator(healthCalculator), optionLogger(&DummyLogger{}))
+				app = NewApp(healthCalculator, &DummyLogger{})
 			} else {
-				app = App(OptionHealthCalculator(nil), optionLogger(&DummyLogger{}))
+				app = NewApp(nil, &DummyLogger{})
 			}
 
 			if tc.middleware != nil {

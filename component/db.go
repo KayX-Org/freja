@@ -11,7 +11,7 @@ type DriverName string
 
 const (
 	Postgres DriverName = "postgres"
-	Mysql               = "mysql"
+	Mysql    DriverName = "mysql"
 )
 
 func openSql(dn DriverName, host string) (*sql.DB, error) {

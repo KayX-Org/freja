@@ -30,24 +30,28 @@ type OptionApp func(*app)
 
 type app struct {
 	healthCalculator        healthCalculator
-	gracefulShutdownTimeout time.Duration
-	logger                  Logger
-	meddlers                []Middleware
 	server                  Server
+	logger                  Logger
+	gracefulShutdownTimeout time.Duration
+	meddlers                []Middleware
 	cancel                  context.CancelFunc
 	osSignal                chan os.Signal //  listen when the service is asked to shutdown
 	gracefulStop            chan bool      // Use to initiate the graceful shutdown
 }
 
-func App(options ...OptionApp) *app {
-	app := &app{
-		healthCalculator:        NewHealthCalculator(),
-		logger:                  component.NewLogger(),
-		gracefulShutdownTimeout: time.Second * 10,
+func NewApp(healthCalculator healthCalculator, logger Logger, options ...OptionApp) *app {
+	return &app{
+		healthCalculator:        healthCalculator,
+		logger:                  logger,
 		meddlers:                make([]Middleware, 0),
 		osSignal:                make(chan os.Signal, 1),
 		gracefulStop:            make(chan bool, 1),
+		gracefulShutdownTimeout: time.Second * 10,
 	}
+}
+
+func App(options ...OptionApp) *app {
+	app := NewApp(NewHealthCalculator(), component.NewLogger())
 
 	for _, o := range options {
 		o(app)
@@ -56,21 +60,15 @@ func App(options ...OptionApp) *app {
 	return app
 }
 
-func OptionHealthCalculator(healthCalculator healthCalculator) OptionApp {
-	return func(a *app) {
-		a.healthCalculator = healthCalculator
-	}
-}
-
 func OptionGracefulShutdownTimeout(gracefulShutdownTimeout time.Duration) OptionApp {
 	return func(a *app) {
 		a.gracefulShutdownTimeout = gracefulShutdownTimeout
 	}
 }
 
-func optionLogger(logger Logger) OptionApp {
+func OptionCustomServer(server Server) OptionApp {
 	return func(a *app) {
-		a.logger = logger
+		a.server = server
 	}
 }
 
