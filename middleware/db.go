@@ -26,7 +26,7 @@ func NewDB(db db, options ...OptionDbMiddleware) *dbMiddleware {
 	midDb := &dbMiddleware{
 		db:          db,
 		name:        "db",
-		checkWindow: time.Millisecond * 500,
+		checkWindow: time.Second,
 		status:      healthcheck.UP,
 	}
 
@@ -74,7 +74,7 @@ func (m *dbMiddleware) Name() string {
 }
 
 func (m *dbMiddleware) runStatusCheck(ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, m.checkWindow)
 	defer cancel()
 
 	if err := m.db.PingContext(ctx); err != nil {
