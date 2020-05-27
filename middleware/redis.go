@@ -29,7 +29,8 @@ func NewRedisMiddleware(client redisClient) *redisMiddleware {
 }
 
 func (m *redisMiddleware) Init() error {
-	return nil
+	_, err := m.client.Ping(context.Background()).Result()
+	return err
 }
 
 func (m *redisMiddleware) Run(ctx context.Context) error {
