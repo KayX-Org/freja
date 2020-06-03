@@ -26,9 +26,9 @@ type Server interface {
 	Shutdown(context.Context) error
 }
 
-type OptionApp func(*app)
+type OptionApp func(*ServiceApp)
 
-type app struct {
+type ServiceApp struct {
 	healthCalculator        healthCalculator
 	server                  Server
 	logger                  Logger
@@ -39,8 +39,8 @@ type app struct {
 	gracefulStop            chan bool      // Use to initiate the graceful shutdown
 }
 
-func NewApp(healthCalculator healthCalculator, logger Logger, options ...OptionApp) *app {
-	return &app{
+func NewApp(healthCalculator healthCalculator, logger Logger, options ...OptionApp) *ServiceApp {
+	return &ServiceApp{
 		healthCalculator:        healthCalculator,
 		logger:                  logger,
 		meddlers:                make([]Middleware, 0),
@@ -50,7 +50,7 @@ func NewApp(healthCalculator healthCalculator, logger Logger, options ...OptionA
 	}
 }
 
-func App(options ...OptionApp) *app {
+func App(options ...OptionApp) *ServiceApp {
 	app := NewApp(NewHealthCalculator(), component.NewLogger())
 
 	for _, o := range options {
@@ -61,27 +61,27 @@ func App(options ...OptionApp) *app {
 }
 
 func OptionGracefulShutdownTimeout(gracefulShutdownTimeout time.Duration) OptionApp {
-	return func(a *app) {
+	return func(a *ServiceApp) {
 		a.gracefulShutdownTimeout = gracefulShutdownTimeout
 	}
 }
 
 func OptionCustomServer(server Server) OptionApp {
-	return func(a *app) {
+	return func(a *ServiceApp) {
 		a.server = server
 	}
 }
 
 // AddMiddleware adds another middleware, and if it does implement the interface HealthChecker
 // it'll add as a HealCheck as well
-func (a *app) AddMiddleware(m Middleware) {
+func (a *ServiceApp) AddMiddleware(m Middleware) {
 	a.meddlers = append(a.meddlers, m)
 	if h, ok := m.(healthcheck.HealthChecker); ok {
 		a.AddHealthCheck(h)
 	}
 }
 
-func (a *app) AddHealthCheck(h healthcheck.HealthChecker) {
+func (a *ServiceApp) AddHealthCheck(h healthcheck.HealthChecker) {
 	if a.healthCalculator != nil {
 		a.healthCalculator.Add(h)
 	}
@@ -89,7 +89,7 @@ func (a *app) AddHealthCheck(h healthcheck.HealthChecker) {
 
 // HealthCheck returns a boolean whether the service is healthy or not, and also accepts an the io.Writer
 // into which writes the summary of all the health checks in JSON format
-func (a *app) HealthCheck(writer io.Writer) (bool, error) {
+func (a *ServiceApp) HealthCheck(writer io.Writer) (bool, error) {
 	if a.healthCalculator != nil {
 		status, summary := a.healthCalculator.Calculate()
 		if err := json.NewEncoder(writer).Encode(summary); err != nil {
@@ -100,21 +100,21 @@ func (a *app) HealthCheck(writer io.Writer) (bool, error) {
 	return true, nil
 }
 
-func (a *app) WithServer(s Server) {
+func (a *ServiceApp) WithServer(s Server) {
 	a.server = s
 }
 
-func (a *app) Server(h http.Handler) {
+func (a *ServiceApp) Server(h http.Handler) {
 	a.server = component.NewServer(h,
 		component.OptionErrorLogWriter(
 			NewLogWrite(a.logger, "error")))
 }
 
-func (a *app) Logger() Logger {
+func (a *ServiceApp) Logger() Logger {
 	return a.logger
 }
 
-func (a *app) init() error {
+func (a *ServiceApp) init() error {
 	for _, mid := range a.meddlers {
 		if err := mid.Init(); err != nil {
 			return fmt.Errorf("unable to run Init(): %w", err)
@@ -133,7 +133,7 @@ func (a *app) init() error {
 	return nil
 }
 
-func (a *app) Start(ctx context.Context) error {
+func (a *ServiceApp) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	a.cancel = cancel
 
@@ -167,7 +167,7 @@ func (a *app) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *app) stop(ctx context.Context) {
+func (a *ServiceApp) stop(ctx context.Context) {
 	<-a.gracefulStop
 	a.logger.Info("graceful shutdown initiated")
 	a.cancel()
