@@ -169,7 +169,7 @@ func TestAppHealthCheck(t *testing.T) {
 					return false, []Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
 				}}
 
-			var app *ServiceApp
+			var app *App
 			if tc.healthCalculator {
 				app = NewApp(healthCalculator, &DummyLogger{})
 			} else {
