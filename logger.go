@@ -12,6 +12,7 @@ type Logger interface {
 	Warnf(format string, args ...interface{})
 	Warningf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
+	// This will do an exit(1)
 	Fatalf(format string, args ...interface{})
 	Panicf(format string, args ...interface{})
 
@@ -21,6 +22,7 @@ type Logger interface {
 	Warn(args ...interface{})
 	Warning(args ...interface{})
 	Error(args ...interface{})
+	// This will do an exit(1)
 	Fatal(args ...interface{})
 	Panic(args ...interface{})
 }

@@ -2,8 +2,7 @@ package component
 
 import (
 	"database/sql"
-	"os"
-	"strconv"
+	"github.com/kayx-org/freja/env"
 	"time"
 )
 
@@ -20,11 +19,11 @@ func openSql(dn DriverName, host string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxIdleConns(getEnvAsInt("DB_MAX_IDLE_CONN", 3))
+	db.SetMaxIdleConns(env.GetEnvAsInt("DB_MAX_IDLE_CONN", 3))
 
-	db.SetMaxOpenConns(getEnvAsInt("DB_MAX_OPEN_CONN", 3))
+	db.SetMaxOpenConns(env.GetEnvAsInt("DB_MAX_OPEN_CONN", 3))
 
-	maxLife := getEnvAsInt("DB_MAX_LIFETIME_CONN", 1)
+	maxLife := env.GetEnvAsInt("DB_MAX_LIFETIME_CONN", 1)
 	db.SetConnMaxLifetime(time.Second * time.Duration(maxLife))
 
 	return db, nil
@@ -36,21 +35,4 @@ func NewPSQL(host string) (*sql.DB, error) {
 
 func NewMYSQL(host string) (*sql.DB, error) {
 	return openSql(Mysql, host)
-}
-
-func getEnv(key string, defaultVal string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-
-	return defaultVal
-}
-
-func getEnvAsInt(name string, defaultVal int) int {
-	valueStr := getEnv(name, "")
-	if value, err := strconv.Atoi(valueStr); err == nil {
-		return value
-	}
-
-	return defaultVal
 }

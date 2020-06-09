@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"fmt"
+	"github.com/kayx-org/freja/env"
 	"io"
 	"log"
 	"net/http"
@@ -22,8 +23,8 @@ func NewServer(handler http.Handler, options ...OptionServer) *Server {
 		o(srv)
 	}
 
-	addr := getEnv("SERVICE_ADDR", "0.0.0.0")
-	port := getEnv("SERVICE_PORT", "5042")
+	addr := env.GetEnv("SERVICE_ADDR", "0.0.0.0")
+	port := env.GetEnv("SERVICE_PORT", "5042")
 	srv.httpSrv = &http.Server{
 		Addr:        fmt.Sprintf("%s:%s", addr, port),
 		IdleTimeout: time.Second * 2,

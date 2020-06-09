@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kayx-org/freja/component"
+	"github.com/kayx-org/freja/env"
 	"github.com/kayx-org/freja/healthcheck"
 	"net/http"
 	"os"
@@ -69,6 +70,24 @@ func OptionCustomServer(server Server) OptionApp {
 	return func(a *App) {
 		a.server = server
 	}
+}
+
+func (a *App) GetEnvOrDie(key string) string {
+	res, err := env.GetEnvOrErr(key)
+	if err != nil {
+		a.logger.Fatal(err)
+	}
+
+	return res
+}
+
+func (a *App) GetEnvAsIntOrDie(key string) int {
+	res, err := env.GetEnvAsIntOrErr(key)
+	if err != nil {
+		a.logger.Fatal(err)
+	}
+
+	return res
 }
 
 // AddMiddleware adds another middleware, and if it does implement the interface HealthChecker

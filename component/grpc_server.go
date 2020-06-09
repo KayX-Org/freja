@@ -2,6 +2,7 @@ package component
 
 import (
 	"fmt"
+	"github.com/kayx-org/freja/env"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -13,8 +14,8 @@ type GRPCServer struct {
 }
 
 func NewGRPCServer() *GRPCServer {
-	addr := getEnv("GRPC_SERVICE_ADDR", "0.0.0.0")
-	port := getEnv("GRPC_SERVICE_PORT", "50051")
+	addr := env.GetEnv("GRPC_SERVICE_ADDR", "0.0.0.0")
+	port := env.GetEnv("GRPC_SERVICE_PORT", "50051")
 
 	s := grpc.NewServer(grpc.ConnectionTimeout(time.Second * 10))
 

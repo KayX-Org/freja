@@ -1,17 +1,18 @@
 package component
 
 import (
+	"github.com/kayx-org/freja/env"
 	log "github.com/sirupsen/logrus"
 	"strings"
 )
 
 func NewLogger() *log.Entry {
 	log.SetFormatter(&log.JSONFormatter{})
-	serviceName := getEnv("SERVICE_NAME", "service")
+	serviceName := env.GetEnv("SERVICE_NAME", "service")
 	standardFields := log.Fields{
 		"serviceName": serviceName,
 	}
-	switch strings.ToLower(getEnv("LOG_LEVEL", "warn")) {
+	switch strings.ToLower(env.GetEnv("LOG_LEVEL", "warn")) {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
 	case "info":
