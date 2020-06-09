@@ -1,7 +1,6 @@
 package freja
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/kayx-org/freja/healthcheck"
@@ -121,35 +120,33 @@ func TestAppHealthCheck(t *testing.T) {
 		middleware             Middleware
 		healthCheck            healthcheck.HealthChecker
 		healthCalculator       bool
+		isHealthy              bool
 		expectedAddCalls       int
 		expectedCalculateCalls int
-		expectedStatus         bool
 		expectedSummary        string
+		expectedErr            error
 	}{
-		"if there is no health calculator to process it should return true": {
+		"if there is no health calculator to process it should return no error": {
 			healthCalculator:       false,
 			expectedAddCalls:       0,
 			expectedCalculateCalls: 0,
 			expectedSummary:        "",
-			expectedStatus:         true,
 		},
 		"it should process the result of the calculator": {
 			//middleware: mockHCWithMiddleware{name: "foo"},
 			healthCalculator:       true,
 			expectedAddCalls:       0,
 			expectedCalculateCalls: 1,
-			expectedSummary: `[{"name":"foo","status":"up"},{"name":"bar","status":"down"}]
-`,
-			expectedStatus: false,
+			isHealthy:              true,
+			expectedSummary:        `[{"name":"foo","status":"up"},{"name":"bar","status":"down"}]`,
 		},
 		"it should add the middleware if implements the HealthChecker interface": {
 			middleware:             mockHCWithMiddleware{name: "foo"},
 			healthCalculator:       true,
 			expectedAddCalls:       1,
 			expectedCalculateCalls: 1,
-			expectedSummary: `[{"name":"foo","status":"up"},{"name":"bar","status":"down"}]
-`,
-			expectedStatus: false,
+			isHealthy:              true,
+			expectedSummary:        `[{"name":"foo","status":"up"},{"name":"bar","status":"down"}]`,
 		},
 		"it should not add the middleware even if implements the HealthChecker interface if the calculator is not there": {
 			middleware:             mockHCWithMiddleware{name: "foo"},
@@ -157,7 +154,15 @@ func TestAppHealthCheck(t *testing.T) {
 			expectedAddCalls:       0,
 			expectedCalculateCalls: 0,
 			expectedSummary:        "",
-			expectedStatus:         true,
+		},
+		"if un healthy is should return an error": {
+			middleware:             mockHCWithMiddleware{name: "foo"},
+			healthCalculator:       true,
+			expectedAddCalls:       1,
+			expectedCalculateCalls: 1,
+			isHealthy:              false,
+			expectedSummary:        `[{"name":"foo","status":"up"},{"name":"bar","status":"down"}]`,
+			expectedErr:            fmt.Errorf("unhealthy"),
 		},
 	}
 
@@ -166,7 +171,7 @@ func TestAppHealthCheck(t *testing.T) {
 			healthCalculator := &healthCalculatorMock{
 				AddFunc: func(healthcheck.HealthChecker) {},
 				CalculateFunc: func() (bool, []Status) {
-					return false, []Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
+					return tc.isHealthy, []Status{{Name: "foo", Status: "up"}, {Name: "bar", Status: "down"}}
 				}}
 
 			var app *App
@@ -183,11 +188,11 @@ func TestAppHealthCheck(t *testing.T) {
 				app.AddHealthCheck(tc.healthCheck)
 			}
 
-			var buff bytes.Buffer
-			status, err := app.HealthCheck(&buff)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, status)
-			assert.Equal(t, tc.expectedSummary, buff.String())
+			summary, err := app.HealthCheck()
+			if fmt.Sprintf("%s", err) != fmt.Sprintf("%s", tc.expectedErr) {
+				t.Errorf("expected error %s, got %s", tc.expectedErr, err)
+			}
+			assert.Equal(t, tc.expectedSummary, string(summary))
 			assert.Equal(t, tc.expectedAddCalls, len(healthCalculator.calls.Add))
 			assert.Equal(t, tc.expectedCalculateCalls, len(healthCalculator.calls.Calculate))
 		})

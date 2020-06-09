@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/kayx-org/freja/component"
 	"github.com/kayx-org/freja/healthcheck"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -87,17 +86,21 @@ func (a *App) AddHealthCheck(h healthcheck.HealthChecker) {
 	}
 }
 
-// HealthCheck returns a boolean whether the service is healthy or not, and also accepts an the io.Writer
-// into which writes the summary of all the health checks in JSON format
-func (a *App) HealthCheck(writer io.Writer) (bool, error) {
+// HealthCheck returns an error to indicate that the service is not healthy
+func (a *App) HealthCheck() ([]byte, error) {
 	if a.healthCalculator != nil {
 		status, summary := a.healthCalculator.Calculate()
-		if err := json.NewEncoder(writer).Encode(summary); err != nil {
-			return false, fmt.Errorf("unable to encode the summary: %w", err)
+		if marshalled, err := json.Marshal(summary); err != nil {
+			a.logger.Errorf("error while marshaling the health-check : %s", err)
+			return []byte(""), fmt.Errorf("unable to encode the summary: %w", err)
+		} else if !status {
+			return marshalled, fmt.Errorf("unhealthy")
+		} else {
+			return marshalled, nil
 		}
-		return status, nil
 	}
-	return true, nil
+
+	return []byte(""), nil
 }
 
 func (a *App) WithServer(s Server) {
