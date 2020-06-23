@@ -69,23 +69,20 @@ type Graph struct {
 }
 
 type Arango struct {
-	db          string
-	user        string
-	password    string
-	endpoints   []string
-	graph       *Graph
-	collections []Collection
-	clientDB    driver.Database
-	client      driver.Client
+	db        string
+	user      string
+	password  string
+	endpoints []string
+	clientDB  driver.Database
+	client    driver.Client
 }
 
 func NewArango(db string, endpoints []string, user, password string, options ...OptionArango) *Arango {
 	a := &Arango{
-		db:          db,
-		user:        user,
-		password:    password,
-		endpoints:   endpoints,
-		collections: make([]Collection, 0),
+		db:        db,
+		user:      user,
+		password:  password,
+		endpoints: endpoints,
 	}
 	for _, o := range options {
 		o(a)
@@ -94,23 +91,13 @@ func NewArango(db string, endpoints []string, user, password string, options ...
 	return a
 }
 
-func OptionGraph(graph Graph) OptionArango {
-	return func(a *Arango) {
-		a.graph = &graph
-	}
+func (a *Arango) DB() driver.Database {
+	return a.clientDB
 }
 
-func OptionCollections(c []Collection) OptionArango {
-	return func(a *Arango) {
-		if c != nil {
-			a.collections = c
-		}
-	}
-}
-
-func (a *Arango) ClientDB(ctx context.Context) (driver.Database, error) {
+func (a *Arango) ClientDB(ctx context.Context) error {
 	if a.clientDB != nil {
-		return a.clientDB, nil
+		return nil
 	}
 
 	if a.client == nil {
@@ -119,7 +106,7 @@ func (a *Arango) ClientDB(ctx context.Context) (driver.Database, error) {
 			ConnLimit: env.GetEnvAsInt("ARANGODB_CONN_LIMIT", 32),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("unable to create connection: %w", err)
+			return fmt.Errorf("unable to create connection: %w", err)
 		}
 
 		a.client, err = driver.NewClient(driver.ClientConfig{
@@ -127,14 +114,14 @@ func (a *Arango) ClientDB(ctx context.Context) (driver.Database, error) {
 			Authentication: driver.BasicAuthentication(a.user, a.password),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("unable to connect: %w", err)
+			return fmt.Errorf("unable to connect: %w", err)
 		}
 	}
 
 	return a.createDB(ctx)
 }
 
-func (a *Arango) createDB(ctx context.Context) (driver.Database, error) {
+func (a *Arango) createDB(ctx context.Context) error {
 	true := true
 	connDB, err := a.client.CreateDatabase(ctx, a.db, &driver.CreateDatabaseOptions{
 		Users: []driver.CreateDatabaseUserOptions{
@@ -144,18 +131,10 @@ func (a *Arango) createDB(ctx context.Context) (driver.Database, error) {
 	})
 	a.clientDB, err = a.processCreateDBError(ctx, connDB, err)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := a.createGraph(ctx); err != nil {
-		return nil, err
-	}
-
-	if err := a.createCollections(ctx); err != nil {
-		return nil, err
-	}
-
-	return a.clientDB, nil
+	return nil
 }
 
 func (a *Arango) processCreateDBError(ctx context.Context, dbClient driver.Database, err error) (driver.Database, error) {
@@ -174,18 +153,14 @@ func (a *Arango) processCreateDBError(ctx context.Context, dbClient driver.Datab
 	return nil, fmt.Errorf("unable to create db: %w", err)
 }
 
-func (a *Arango) createGraph(ctx context.Context) error {
-	if a.graph == nil {
-		return nil
-	}
-
-	g, err := a.clientDB.CreateGraph(ctx, a.graph.Name, &driver.CreateGraphOptions{ReplicationFactor: 2})
+func (a *Arango) CreateGraph(ctx context.Context, graph *Graph) error {
+	g, err := a.clientDB.CreateGraph(ctx, graph.Name, &driver.CreateGraphOptions{ReplicationFactor: 2})
 	g, err = a.processCreateGraphError(ctx, g, err)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range a.graph.Vertexes {
+	for _, v := range graph.Vertexes {
 		c, err := g.CreateVertexCollection(ctx, v.Name)
 		if err != nil {
 			return fmt.Errorf("unable to create vertex collection '%s', :%w", v.Name, err)
@@ -195,7 +170,7 @@ func (a *Arango) createGraph(ctx context.Context) error {
 		}
 	}
 
-	for _, e := range a.graph.Edges {
+	for _, e := range graph.Edges {
 		c, err := g.CreateEdgeCollection(ctx, e.Name, driver.VertexConstraints{})
 		if err != nil {
 			return fmt.Errorf("unable to create edge collection '%s', :%w", e.Name, err)
@@ -214,12 +189,8 @@ func (a *Arango) createGraph(ctx context.Context) error {
 	return nil
 }
 
-func (a *Arango) createCollections(ctx context.Context) error {
-	if a.collections == nil {
-		return nil
-	}
-
-	for _, col := range a.collections {
+func (a *Arango) CreateCollections(ctx context.Context, collections []Collection) error {
+	for _, col := range collections {
 		c, err := a.clientDB.CreateCollection(ctx, col.Name, &driver.CreateCollectionOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create collection '%s', :%w", c.Name, err)
@@ -272,7 +243,7 @@ func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph
 	}
 
 	if driver.IsArangoErrorWithErrorNum(err, ErrDuplicate) {
-		if c, err := a.clientDB.Graph(ctx, a.graph.Name); err != nil {
+		if c, err := a.clientDB.Graph(ctx, graph.Name()); err != nil {
 			return nil, fmt.Errorf("unable to get graph: %w", err)
 		} else {
 			return c, nil
