@@ -95,7 +95,7 @@ func (a *Arango) DB() driver.Database {
 	return a.clientDB
 }
 
-func (a *Arango) ClientDB(ctx context.Context) error {
+func (a *Arango) InitDB(ctx context.Context) error {
 	if a.clientDB != nil {
 		return nil
 	}
@@ -138,7 +138,7 @@ func (a *Arango) createDB(ctx context.Context) error {
 }
 
 func (a *Arango) processCreateDBError(ctx context.Context, dbClient driver.Database, err error) (driver.Database, error) {
-	if err != nil {
+	if err == nil {
 		return dbClient, nil
 	}
 
@@ -238,7 +238,7 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 }
 
 func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph, err error) (driver.Graph, error) {
-	if err != nil {
+	if err == nil {
 		return graph, nil
 	}
 
