@@ -12,7 +12,9 @@ type OptionArango func(*Arango)
 type IndexType int
 
 const (
-	ErrDuplicate = 1207
+	ErrDuplicate                = 1207
+	ErrGraphDuplicate           = 1925
+	ErrCollectionAlreadyInGraph = 1938
 )
 
 type Index interface {
@@ -74,6 +76,7 @@ type Arango struct {
 	password  string
 	endpoints []string
 	clientDB  driver.Database
+	graph     driver.Graph
 	client    driver.Client
 }
 
@@ -155,15 +158,17 @@ func (a *Arango) processCreateDBError(ctx context.Context, dbClient driver.Datab
 
 func (a *Arango) CreateGraph(ctx context.Context, graph *Graph) error {
 	g, err := a.clientDB.CreateGraph(ctx, graph.Name, &driver.CreateGraphOptions{ReplicationFactor: 2})
-	g, err = a.processCreateGraphError(ctx, g, err)
+	g, err = a.processCreateGraphError(ctx, g, graph.Name, err)
 	if err != nil {
 		return err
 	}
+	a.graph = g
 
 	for _, v := range graph.Vertexes {
 		c, err := g.CreateVertexCollection(ctx, v.Name)
+		c, err = a.processVertexGraphError(ctx, c, v.Name, err)
 		if err != nil {
-			return fmt.Errorf("unable to create vertex collection '%s', :%w", v.Name, err)
+			return err
 		}
 		if err := a.ensureIndexes(ctx, c, v.Indexes); err != nil {
 			return err
@@ -237,13 +242,29 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 	return nil
 }
 
-func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph, err error) (driver.Graph, error) {
+func (a *Arango) processVertexGraphError(ctx context.Context, collection driver.Collection, name string, err error) (driver.Collection, error) {
+	if err == nil {
+		return collection, nil
+	}
+
+	if driver.IsArangoErrorWithErrorNum(err, ErrCollectionAlreadyInGraph) {
+		if c, err := a.graph.VertexCollection(ctx, name); err != nil {
+			return nil, fmt.Errorf("unable to get collection: %w", err)
+		} else {
+			return c, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to create collection: %w", err)
+}
+
+func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph, name string, err error) (driver.Graph, error) {
 	if err == nil {
 		return graph, nil
 	}
 
-	if driver.IsArangoErrorWithErrorNum(err, ErrDuplicate) {
-		if c, err := a.clientDB.Graph(ctx, graph.Name()); err != nil {
+	if driver.IsArangoErrorWithErrorNum(err, ErrGraphDuplicate) {
+		if c, err := a.clientDB.Graph(ctx, name); err != nil {
 			return nil, fmt.Errorf("unable to get graph: %w", err)
 		} else {
 			return c, nil
