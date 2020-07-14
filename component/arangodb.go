@@ -11,10 +11,13 @@ import (
 type OptionArango func(*Arango)
 type IndexType int
 
+// For more info in regard of this error codes go to https://www.arangodb.com/docs/stable/appendix-error-codes.html
 const (
-	ErrDuplicate                = 1207
-	ErrGraphDuplicate           = 1925
-	ErrCollectionAlreadyInGraph = 1938
+	ErrDuplicate                    = 1207
+	ErrGraphDuplicate               = 1925
+	ErrCollectionAlreadyInGraph     = 1938
+	ErrCollectionAlreadyInEdgeGraph = 1929
+	ErrEdgeAlreadyInGraph           = 1920
 )
 
 type Index interface {
@@ -25,6 +28,7 @@ type Index interface {
 type GeoIndex struct {
 	IxName   string
 	IxFields []string
+	GeoJson  bool
 }
 
 func (g GeoIndex) Name() string {
@@ -33,6 +37,20 @@ func (g GeoIndex) Name() string {
 
 func (g GeoIndex) Fields() []string {
 	return g.IxFields
+}
+
+type TTLIndex struct {
+	IxName      string
+	IxField     string
+	ExpireAfter int
+}
+
+func (g TTLIndex) Name() string {
+	return g.IxName
+}
+
+func (g TTLIndex) Fields() []string {
+	return []string{g.IxField}
 }
 
 type HashIndex struct {
@@ -166,7 +184,7 @@ func (a *Arango) CreateGraph(ctx context.Context, graph *Graph) error {
 
 	for _, v := range graph.Vertexes {
 		c, err := g.CreateVertexCollection(ctx, v.Name)
-		c, err = a.processVertexGraphError(ctx, c, v.Name, err)
+		c, err = a.processCollectionGraphError(ctx, c, v.Name, err)
 		if err != nil {
 			return err
 		}
@@ -176,12 +194,16 @@ func (a *Arango) CreateGraph(ctx context.Context, graph *Graph) error {
 	}
 
 	for _, e := range graph.Edges {
-		c, err := g.CreateEdgeCollection(ctx, e.Name, driver.VertexConstraints{})
+		c, err := g.CreateEdgeCollection(ctx, e.Name, driver.VertexConstraints{
+			From: e.From,
+			To:   e.To,
+		})
+		c, err = a.processEdgeCollectionGraphError(ctx, c, e.Name, err)
 		if err != nil {
 			return fmt.Errorf("unable to create edge collection '%s', :%w", e.Name, err)
 		}
 		if err := a.ensureIndexes(ctx, c, e.Indexes); err != nil {
-			return err
+			return fmt.Errorf("unable to ensure indexes: %w", err)
 		}
 		if err := g.SetVertexConstraints(ctx, e.Name, driver.VertexConstraints{
 			From: e.From,
@@ -214,13 +236,13 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 		case GeoIndex:
 			_, _, err := c.EnsureGeoIndex(ctx, ix.Fields(), &driver.EnsureGeoIndexOptions{
 				// Long and then latitude
-				GeoJSON:      true,
+				GeoJSON:      index.GeoJson,
 				InBackground: true,
 				Name:         ix.Name(),
 			})
 
 			if err != nil {
-				return fmt.Errorf("unable to create geo index '%s': %w", ix.Name, err)
+				return fmt.Errorf("unable to create geo index '%s': %w", ix.Name(), err)
 			}
 		case HashIndex:
 			_, _, err := c.EnsureHashIndex(ctx, ix.Fields(), &driver.EnsureHashIndexOptions{
@@ -232,7 +254,15 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 			})
 
 			if err != nil {
-				return fmt.Errorf("unable to create geo index '%s': %w", ix.Name, err)
+				return fmt.Errorf("unable to create geo index '%s': %w", ix.Name(), err)
+			}
+		case TTLIndex:
+			_, _, err := c.EnsureTTLIndex(ctx, index.IxField, index.ExpireAfter, &driver.EnsureTTLIndexOptions{
+				InBackground: true,
+				Name:         ix.Name(),
+			})
+			if err != nil {
+				return fmt.Errorf("unable to create ttl index '%s': %w", ix.Name(), err)
 			}
 		default:
 			return fmt.Errorf("unhandled index type")
@@ -242,12 +272,13 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 	return nil
 }
 
-func (a *Arango) processVertexGraphError(ctx context.Context, collection driver.Collection, name string, err error) (driver.Collection, error) {
+func (a *Arango) processCollectionGraphError(ctx context.Context, collection driver.Collection, name string, err error) (driver.Collection, error) {
 	if err == nil {
 		return collection, nil
 	}
 
-	if driver.IsArangoErrorWithErrorNum(err, ErrCollectionAlreadyInGraph) {
+	if driver.IsArangoErrorWithErrorNum(err, ErrCollectionAlreadyInGraph) ||
+		driver.IsArangoErrorWithErrorNum(err, ErrCollectionAlreadyInEdgeGraph) {
 		if c, err := a.graph.VertexCollection(ctx, name); err != nil {
 			return nil, fmt.Errorf("unable to get collection: %w", err)
 		} else {
@@ -256,6 +287,22 @@ func (a *Arango) processVertexGraphError(ctx context.Context, collection driver.
 	}
 
 	return nil, fmt.Errorf("unable to create collection: %w", err)
+}
+
+func (a *Arango) processEdgeCollectionGraphError(ctx context.Context, collection driver.Collection, name string, err error) (driver.Collection, error) {
+	if err == nil {
+		return collection, nil
+	}
+
+	if driver.IsArangoErrorWithErrorNum(err, ErrEdgeAlreadyInGraph) {
+		if c, _, err := a.graph.EdgeCollection(ctx, name); err != nil {
+			return nil, fmt.Errorf("unable to get edge collection: %w", err)
+		} else {
+			return c, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to create edge collection: %w", err)
 }
 
 func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph, name string, err error) (driver.Graph, error) {
