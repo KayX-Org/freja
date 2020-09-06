@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine
+FROM golang:1.15-alpine
 RUN apk add -U git mercurial openssh ca-certificates gcc musl-dev
 RUN go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 WORKDIR /app
