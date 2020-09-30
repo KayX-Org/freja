@@ -39,6 +39,20 @@ func (g GeoIndex) Fields() []string {
 	return g.IxFields
 }
 
+type FullTextIndex struct {
+	MinLength int
+	IxName    string
+	IxFields  []string
+}
+
+func (g FullTextIndex) Name() string {
+	return g.IxName
+}
+
+func (g FullTextIndex) Fields() []string {
+	return g.IxFields
+}
+
 type TTLIndex struct {
 	IxName      string
 	IxField     string
@@ -220,7 +234,7 @@ func (a *Arango) CreateCollections(ctx context.Context, collections []Collection
 	for _, col := range collections {
 		c, err := a.clientDB.CreateCollection(ctx, col.Name, &driver.CreateCollectionOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create collection '%s', :%w", c.Name, err)
+			return fmt.Errorf("unable to create collection '%s', :%w", c.Name(), err)
 		}
 		if err := a.ensureIndexes(ctx, c, col.Indexes); err != nil {
 			return err
@@ -263,6 +277,15 @@ func (a *Arango) ensureIndexes(ctx context.Context, c driver.Collection, indexes
 			})
 			if err != nil {
 				return fmt.Errorf("unable to create ttl index '%s': %w", ix.Name(), err)
+			}
+		case FullTextIndex:
+			_, _, err := c.EnsureFullTextIndex(ctx, ix.Fields(), &driver.EnsureFullTextIndexOptions{
+				MinLength:    index.MinLength,
+				InBackground: true,
+				Name:         ix.Name(),
+			})
+			if err != nil {
+				return fmt.Errorf("unable to create full text index '%s': %w", ix.Name(), err)
 			}
 		default:
 			return fmt.Errorf("unhandled index type")
