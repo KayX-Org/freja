@@ -384,7 +384,8 @@ func (a *Arango) GetIDTimeCursor(cursor string) (string, time.Time, error) {
 		return "", time.Time{}, fmt.Errorf("unable to decode cursor: %w", err)
 	}
 
-	cursors := strings.Split(string(res), "-")
+	cursorStr := string(res)
+	cursors := strings.Split(cursorStr, "*")
 	if len(cursors) != 2 {
 		return "", time.Time{}, errors.New("cursor must have two values")
 	}
@@ -399,5 +400,6 @@ func (a *Arango) GetIDTimeCursor(cursor string) (string, time.Time, error) {
 
 // CreateCursorWithIdAndTime gets a cursor using the Id and createdAt
 func (a *Arango) CreateCursorWithIdAndTime(id string, createdAt time.Time) string {
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s-%s", id, createdAt.Format(time.RFC3339))))
+	cursor := fmt.Sprintf("%s*%s", id, createdAt.Format(time.RFC3339))
+	return base64.StdEncoding.EncodeToString([]byte(cursor))
 }
