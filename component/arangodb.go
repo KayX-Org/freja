@@ -361,6 +361,8 @@ func (a *Arango) EnhanceBindVarsWithIdTimeCursor(bindVars map[string]interface{}
 	}
 
 	bindVars["paginationOn"] = false
+	bindVars["paginationAfterId"] = ""
+	bindVars["paginationAfterTime"] = time.Now()
 	if pagination.After != "" {
 		id, created, err := a.GetIDTimeCursor(pagination.After)
 		if err != nil {
