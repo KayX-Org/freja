@@ -2,10 +2,14 @@ package component
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/arangodb/go-driver"
 	"github.com/arangodb/go-driver/http"
 	"github.com/kayx-org/freja/env"
+	"strings"
+	"time"
 )
 
 type OptionArango func(*Arango)
@@ -19,6 +23,11 @@ const (
 	ErrCollectionAlreadyInEdgeGraph = 1929
 	ErrEdgeAlreadyInGraph           = 1920
 )
+
+type Pagination struct {
+	Limit int
+	After string
+}
 
 type Index interface {
 	Name() string
@@ -342,4 +351,51 @@ func (a *Arango) processCreateGraphError(ctx context.Context, graph driver.Graph
 	}
 
 	return nil, fmt.Errorf("unable to create graph: %w", err)
+}
+
+// EnhanceBinVarsWithIdTimeCursor adds an extra set of bindVars used for pagination and adds a limit to the pagination
+func (a *Arango) EnhanceBindVarsWithIdTimeCursor(bindVars map[string]interface{}, pagination Pagination) (map[string]interface{}, error) {
+	limit := 100
+	if pagination.Limit < 100 {
+		limit = pagination.Limit
+	}
+
+	bindVars["paginationOn"] = false
+	if pagination.After != "" {
+		id, created, err := a.GetIDTimeCursor(pagination.After)
+		if err != nil {
+			return nil, err
+		}
+
+		bindVars["paginationAfterId"] = id
+		bindVars["paginationAfterTime"] = created
+		bindVars["paginationOn"] = true
+	}
+
+	bindVars["paginationLimit"] = limit
+	return bindVars, nil
+}
+
+func (a *Arango) GetIDTimeCursor(cursor string) (string, time.Time, error) {
+	res, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("unable to decode cursor: %w", err)
+	}
+
+	cursors := strings.Split(string(res), "-")
+	if len(cursors) != 2 {
+		return "", time.Time{}, errors.New("cursor must have two values")
+	}
+
+	created, err := time.Parse(time.RFC3339, cursors[1])
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("unabelt to parse cursor time: %w", err)
+	}
+
+	return cursors[0], created, nil
+}
+
+// CreateCursorWithIdAndTime gets a cursor using the Id and createdAt
+func (a *Arango) CreateCursorWithIdAndTime(id string, createdAt time.Time) string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s-%s", id, createdAt.Format(time.RFC3339))))
 }
